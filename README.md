@@ -86,13 +86,15 @@ Tilting or moving the laptop doesn't cause false triggers because Tapify continu
 3. Unzip it and drag **Tapify.app** to your Applications folder
 4. Open it
 
-Since the app is not notarized, macOS will block it on first launch. To get past that:
+Since the app is not notarized, macOS may block it on first launch. To fix that, run this in Terminal after dragging it to Applications:
 
-1. Try to open Tapify - you'll see a security warning
-2. Go to **System Settings → Privacy & Security**
-3. Scroll down and click **Open Anyway** next to Tapify
+```bash
+xattr -cr /Applications/Tapify.app
+```
 
-You only need to do this once.
+Then open it normally. You only need to do this once.
+
+If you see **"Tapify is damaged and can't be opened"** - this is the same issue. The command above fixes it.
 
 ---
 
