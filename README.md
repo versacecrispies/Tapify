@@ -74,46 +74,41 @@ Tilting or moving the laptop doesn't cause false triggers because Tapify continu
 |---|---|
 | Chip | Apple Silicon — M1, M2, M3, or M4 |
 | macOS | Ventura 13 or later |
-| Xcode | 15 or later |
-| Homebrew | Needed to install the build tool (`xcodegen`) |
 
 ---
 
 ## Download & Run
 
-### Step 1 — Install Homebrew (if you don't have it)
+### Option 1 — Direct download (easiest)
 
-Open Terminal and paste:
+1. Go to the [latest release](https://github.com/versacecrispies/Tapify/releases/latest)
+2. Download **Tapify.zip**
+3. Unzip it and drag **Tapify.app** to your Applications folder
+4. Open it
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+Since the app is not notarized, macOS will block it on first launch. To get past that:
 
-Skip this step if you already have Homebrew.
+1. Try to open Tapify - you'll see a security warning
+2. Go to **System Settings → Privacy & Security**
+3. Scroll down and click **Open Anyway** next to Tapify
 
-### Step 2 — Clone the repo
+You only need to do this once.
+
+---
+
+### Option 2 — Build from source
+
+If you'd rather build it yourself:
+
+**Requirements:** Xcode 15+, Homebrew
 
 ```bash
 git clone https://github.com/versacecrispies/Tapify.git
 cd Tapify
-```
-
-### Step 3 — Run setup
-
-```bash
 ./setup.sh
 ```
 
-This will:
-- Install `xcodegen` via Homebrew (if not already installed)
-- Generate the Xcode project file
-- Open the project in Xcode automatically
-
-### Step 4 — Build and run
-
-In Xcode, press **Cmd + R**.
-
-Tapify will launch and appear in your **menu bar** (top-right of your screen). Click the icon to open the app.
+This installs `xcodegen`, generates the Xcode project, and opens it. Then press **Cmd + R** in Xcode to build and run.
 
 ---
 
