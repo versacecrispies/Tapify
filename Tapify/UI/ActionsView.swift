@@ -52,6 +52,49 @@ struct ActionsView: View {
                     }
                 }
 
+                // Run Shortcut name input
+                if settings.singleTapAction == .runShortcut ||
+                   settings.doubleTapAction == .runShortcut ||
+                   settings.tripleTapAction == .runShortcut {
+                    Card {
+                        HStack(spacing: 10) {
+                            Image(systemName: "wand.and.stars")
+                                .foregroundColor(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Shortcut name")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Theme.primaryText)
+                                TextField("e.g. Morning Routine", text: $settings.shortcutName)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Theme.primaryText)
+                                    .textFieldStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
+                // Run Custom Command input
+                if settings.singleTapAction == .runCustomCommand ||
+                   settings.doubleTapAction == .runCustomCommand ||
+                   settings.tripleTapAction == .runCustomCommand {
+                    Card {
+                        HStack(spacing: 10) {
+                            Image(systemName: "terminal")
+                                .foregroundColor(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Shell command")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Theme.primaryText)
+                                TextField("e.g. say hello", text: $settings.customCommand)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Theme.primaryText)
+                                    .textFieldStyle(.plain)
+                                    .fontDesign(.monospaced)
+                            }
+                        }
+                    }
+                }
+
                 Spacer(minLength: 8)
             }
             .padding(Theme.cardPadding)

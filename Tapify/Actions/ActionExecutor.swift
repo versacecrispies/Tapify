@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import CoreAudio
 import AudioToolbox
+import CoreGraphics
 import Combine
 
 /**
@@ -41,21 +42,49 @@ final class ActionExecutor: ObservableObject {
 
     func execute(_ action: ActionType) {
         switch action {
-        case .none:        break
-        case .playPause:   triggerPlayPause()
-        case .lockScreen:  triggerLockScreen()
-        case .screenshot:  screenshotCoordinator.beginCrop()
-        case .openApp:     triggerOpenApp()
-        case .volumeUp:    adjustVolume(by: +0.07)
-        case .volumeDown:  adjustVolume(by: -0.07)
+        case .none:             break
+        case .playPause:        triggerPlayPause()
+        case .mute:             triggerMute()
+        case .volumeUp:         adjustVolume(by: +0.07)
+        case .volumeDown:       adjustVolume(by: -0.07)
+        case .lockScreen:       triggerLockScreen()
+        case .sleepMac:         triggerSleepMac()
+        case .screenshot:       screenshotCoordinator.beginCrop()
+        case .nextTab:          sendKey(48, flags: .maskControl)
+        case .previousTab:      sendKey(48, flags: [.maskControl, .maskShift])
+        case .nextDesktop:      sendKey(124, flags: .maskControl)
+        case .previousDesktop:  sendKey(123, flags: .maskControl)
+        case .missionControl:   sendKey(126, flags: .maskControl)
+        case .appSwitcher:      sendKey(48, flags: .maskCommand)
+        case .openApp:          triggerOpenApp()
+        case .openFinder:       triggerOpenFinder()
+        case .openTerminal:     triggerOpenTerminal()
+        case .copy:             sendKey(8, flags: .maskCommand)
+        case .paste:            sendKey(9, flags: .maskCommand)
+        case .undo:             sendKey(6, flags: .maskCommand)
+        case .redo:             sendKey(6, flags: [.maskCommand, .maskShift])
+        case .spotlight:        sendKey(49, flags: .maskCommand)
+        case .closeWindow:      sendKey(13, flags: .maskCommand)
+        case .runShortcut:      triggerRunShortcut()
+        case .runCustomCommand: triggerRunCustomCommand()
         }
     }
 
-    // MARK: - Action Implementations
+    // MARK: - Keyboard helper
+
+    private func sendKey(_ key: CGKeyCode, flags: CGEventFlags = []) {
+        guard let src = CGEventSource(stateID: .hidSystemState) else { return }
+        let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true)
+        let up   = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
+        down?.flags = flags
+        up?.flags   = flags
+        down?.post(tap: .cgSessionEventTap)
+        up?.post(tap: .cgSessionEventTap)
+    }
+
+    // MARK: - Media
 
     private func triggerPlayPause() {
-        // Simulate the media Play/Pause key (NX_KEYTYPE_PLAY = 16)
-        // using NSEvent system-defined events — the most reliable cross-app method.
         func sendMediaKey(keyDown: Bool) {
             let event = NSEvent.otherEvent(
                 with: .systemDefined,
@@ -64,7 +93,7 @@ final class ActionExecutor: ObservableObject {
                 timestamp: 0,
                 windowNumber: 0,
                 context: nil,
-                subtype: 8,           // NX_SUBTYPE_AUX_CONTROL_BUTTONS
+                subtype: 8,
                 data1: (16 << 16) | ((keyDown ? 0xa : 0xb) << 8),
                 data2: -1
             )
@@ -74,12 +103,23 @@ final class ActionExecutor: ObservableObject {
         sendMediaKey(keyDown: false)
     }
 
+    // MARK: - System
+
     private func triggerLockScreen() {
         let task = Process()
         task.launchPath = "/usr/bin/pmset"
         task.arguments  = ["displaysleepnow"]
         try? task.run()
     }
+
+    private func triggerSleepMac() {
+        let task = Process()
+        task.launchPath = "/usr/bin/pmset"
+        task.arguments  = ["sleepnow"]
+        try? task.run()
+    }
+
+    // MARK: - Apps
 
     private func triggerOpenApp() {
         guard let url = settings.openAppURL else {
@@ -94,6 +134,40 @@ final class ActionExecutor: ObservableObject {
                 NSLog("[Tapify] Open App failed: %@", error.localizedDescription)
             }
         }
+    }
+
+    private func triggerOpenFinder() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app"))
+    }
+
+    private func triggerOpenTerminal() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
+    }
+
+    // MARK: - Custom
+
+    private func triggerRunShortcut() {
+        let name = settings.shortcutName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else {
+            NSLog("[Tapify] Run Shortcut: no shortcut name configured.")
+            return
+        }
+        let task = Process()
+        task.launchPath = "/usr/bin/shortcuts"
+        task.arguments  = ["run", name]
+        try? task.run()
+    }
+
+    private func triggerRunCustomCommand() {
+        let cmd = settings.customCommand.trimmingCharacters(in: .whitespaces)
+        guard !cmd.isEmpty else {
+            NSLog("[Tapify] Run Custom Command: no command configured.")
+            return
+        }
+        let task = Process()
+        task.launchPath = "/bin/zsh"
+        task.arguments  = ["-c", cmd]
+        try? task.run()
     }
 
     // MARK: - Volume (CoreAudio)
@@ -136,5 +210,45 @@ final class ActionExecutor: ObservableObject {
                                    0, nil,
                                    volSize,
                                    &volume)
+    }
+
+    private func triggerMute() {
+        var defaultOutput = AudioDeviceID(kAudioObjectUnknown)
+        var propertySize  = UInt32(MemoryLayout<AudioDeviceID>.size)
+
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain
+        )
+
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                         &addr,
+                                         0, nil,
+                                         &propertySize,
+                                         &defaultOutput) == noErr,
+              defaultOutput != kAudioObjectUnknown else { return }
+
+        var muteAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope:    kAudioDevicePropertyScopeOutput,
+            mElement:  kAudioObjectPropertyElementMain
+        )
+
+        var muted: UInt32 = 0
+        var muteSize = UInt32(MemoryLayout<UInt32>.size)
+
+        guard AudioObjectGetPropertyData(defaultOutput,
+                                         &muteAddr,
+                                         0, nil,
+                                         &muteSize,
+                                         &muted) == noErr else { return }
+
+        muted = muted == 0 ? 1 : 0
+        AudioObjectSetPropertyData(defaultOutput,
+                                   &muteAddr,
+                                   0, nil,
+                                   muteSize,
+                                   &muted)
     }
 }

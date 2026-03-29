@@ -53,6 +53,16 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(openAppBookmark, forKey: Keys.openAppBookmark) }
     }
 
+    /// Name of the Shortcuts app shortcut to run for the .runShortcut action
+    @Published var shortcutName: String {
+        didSet { UserDefaults.standard.set(shortcutName, forKey: Keys.shortcutName) }
+    }
+
+    /// Shell command to run for the .runCustomCommand action
+    @Published var customCommand: String {
+        didSet { UserDefaults.standard.set(customCommand, forKey: Keys.customCommand) }
+    }
+
     // MARK: - Convenience
 
     func action(for count: TapCount) -> ActionType {
@@ -87,6 +97,8 @@ final class AppSettings: ObservableObject {
 
         openAppURL      = defaults.url(forKey: Keys.openAppURL)
         openAppBookmark = defaults.data(forKey: Keys.openAppBookmark)
+        shortcutName    = defaults.string(forKey: Keys.shortcutName) ?? ""
+        customCommand   = defaults.string(forKey: Keys.customCommand) ?? ""
     }
 
     // MARK: - Keys
@@ -100,6 +112,8 @@ final class AppSettings: ObservableObject {
         static let tripleTapAction  = "tripleTapAction"
         static let openAppURL       = "openAppURL"
         static let openAppBookmark  = "openAppBookmark"
+        static let shortcutName     = "shortcutName"
+        static let customCommand    = "customCommand"
     }
 }
 
