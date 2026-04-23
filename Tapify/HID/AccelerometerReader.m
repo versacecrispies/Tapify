@@ -116,12 +116,12 @@ static void DeviceRemovedCallback(void            *context,
 
 - (void)_runHIDLoop {
     @autoreleasepool {
-        // Build the device matching dictionary for the SPU accelerometer
+        // Build the device matching dictionary for the SPU accelerometer.
+        // On M1–M4 the device advertised PrimaryUsage=3; on M5 it does not,
+        // so we match on the vendor usage page alone and filter by report size
+        // in the matched callback.
         NSDictionary *matching = @{
-            // kIOHIDTransportKey won't always match "SPU" across macOS versions,
-            // so we rely on the vendor usage page + usage instead for robustness.
             @(kIOHIDPrimaryUsagePageKey): @(0xFF00),
-            @(kIOHIDPrimaryUsageKey):     @(3),
         };
 
         _hidManager = IOHIDManagerCreate(kCFAllocatorDefault,
@@ -168,9 +168,20 @@ static void DeviceRemovedCallback(void            *context,
 }
 
 - (void)_deviceMatched:(IOHIDDeviceRef)device {
-    // Log which device matched to help troubleshoot byte offsets
     NSString *product = (__bridge_transfer NSString *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey));
+
+    // Skip any usage-page-0xFF00 device that isn't the 22-byte accelerometer.
+    // On M5 the accelerometer no longer advertises PrimaryUsage=3, so we widen
+    // the match above and discriminate here instead.
+    NSNumber *reportSize = (__bridge_transfer NSNumber *)
+        IOHIDDeviceGetProperty(device, CFSTR(kIOHIDMaxInputReportSizeKey));
+    if (reportSize.intValue != kReportLength) {
+        NSLog(@"[Tapify] Skipping HID device: %@ (report size %d)",
+              product ?: @"(unknown)", reportSize.intValue);
+        return;
+    }
+
     NSLog(@"[Tapify] Matched HID device: %@", product ?: @"(unknown)");
 
     // Allocate a per-device context on the heap — must outlive the callback lifetime

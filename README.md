@@ -6,7 +6,7 @@ Tapify does exactly what tryknock.com does — lets you control your Mac by tapp
 
 Every feature tryknock.com charges for is here for free: single, double, and triple tap gestures, Play/Pause, Lock Screen, Screenshot with crop, Open App, and Volume Up/Down.
 
-> **Apple Silicon only (M1, M2, M3, M4). Does not work on Intel Macs.**
+> **Apple Silicon only (M1, M2, M3, M4, M5). Does not work on Intel Macs.**
 
 ---
 
@@ -72,7 +72,7 @@ Tilting or moving the laptop doesn't cause false triggers because Tapify continu
 
 | | |
 |---|---|
-| Chip | Apple Silicon — M1, M2, M3, or M4 |
+| Chip | Apple Silicon — M1, M2, M3, M4, or M5 |
 | macOS | Ventura 13 or later |
 
 ---
