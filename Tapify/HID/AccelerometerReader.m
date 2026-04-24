@@ -231,9 +231,15 @@ static void DeviceRemovedCallback(void            *context,
                                    CFRunLoopGetCurrent(),
                                    kCFRunLoopDefaultMode);
 
+    // Try non-exclusive open first; fall back to seize if that yields no data.
+    // On M5, the SPU device appears to require exclusive access before it streams.
     IOReturn openResult = IOHIDDeviceOpen(device, kIOHIDOptionsTypeNone);
     if (openResult != kIOReturnSuccess) {
-        NSLog(@"[Tapify] IOHIDDeviceOpen failed: 0x%x", openResult);
+        NSLog(@"[Tapify] Non-exclusive open failed (0x%x), trying seize.", openResult);
+        openResult = IOHIDDeviceOpen(device, kIOHIDOptionsTypeSeizeDevice);
+    }
+    if (openResult != kIOReturnSuccess) {
+        NSLog(@"[Tapify] IOHIDDeviceOpen failed entirely: 0x%x", openResult);
     } else {
         _isRunning = YES;
         NSLog(@"[Tapify] Accelerometer online.");
