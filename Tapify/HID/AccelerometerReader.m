@@ -51,26 +51,19 @@ static void HIDReportCallback(void         *context,
     sample.z         = (double)rawZ * kRawToG;
     sample.timestamp = mach_absolute_time();
 
-    // Dump the first 30 raw reports to a file so byte layout can be inspected.
-    // The file is readable via: cat /tmp/tapify_reports.hex
+    // Print first 30 raw reports to stderr for byte layout analysis.
+    // Run the binary directly to see output: /Applications/Tapify.app/Contents/MacOS/Tapify
     static int sDumpCount = 0;
     if (sDumpCount < 30) {
         sDumpCount++;
-        const char *home = getenv("HOME");
-        char path[1024];
-        snprintf(path, sizeof(path), "%s/Desktop/tapify_reports.hex", home ? home : "/tmp");
-        FILE *f = fopen(path, sDumpCount == 1 ? "w" : "a");
-        if (f) {
-            fprintf(f, "report %02d (%ld bytes): ", sDumpCount, reportLength);
-            for (CFIndex i = 0; i < reportLength; i++) {
-                fprintf(f, "%02X ", report[i]);
-            }
-            fprintf(f, "  | parsed x=%.4f y=%.4f z=%.4f\n",
-                    (double)rawX * kRawToG,
-                    (double)rawY * kRawToG,
-                    (double)rawZ * kRawToG);
-            fclose(f);
+        fprintf(stderr, "[TapifyHex] report %02d (%ld bytes): ", sDumpCount, (long)reportLength);
+        for (CFIndex i = 0; i < reportLength; i++) {
+            fprintf(stderr, "%02X ", report[i]);
         }
+        fprintf(stderr, " | x=%.4f y=%.4f z=%.4f\n",
+                (double)rawX * kRawToG,
+                (double)rawY * kRawToG,
+                (double)rawZ * kRawToG);
     }
 
     DeviceContext *ctx = (DeviceContext *)context;
