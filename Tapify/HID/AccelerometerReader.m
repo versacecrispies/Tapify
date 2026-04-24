@@ -51,6 +51,14 @@ static void HIDReportCallback(void         *context,
     sample.z         = (double)rawZ * kRawToG;
     sample.timestamp = mach_absolute_time();
 
+    // Log the first report to confirm data is flowing and offsets look sane.
+    static BOOL didLogFirst = NO;
+    if (!didLogFirst) {
+        didLogFirst = YES;
+        NSLog(@"[Tapify] First report — x:%.3f y:%.3f z:%.3f (raw %d %d %d)",
+              sample.x, sample.y, sample.z, rawX, rawY, rawZ);
+    }
+
     DeviceContext *ctx = (DeviceContext *)context;
     AccelSampleHandler handler = ctx->reader.sampleHandler;
     if (handler) {
@@ -170,19 +178,26 @@ static void DeviceRemovedCallback(void            *context,
 - (void)_deviceMatched:(IOHIDDeviceRef)device {
     NSString *product = (__bridge_transfer NSString *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey));
-
-    // Skip any usage-page-0xFF00 device that isn't the 22-byte accelerometer.
-    // On M5 the accelerometer no longer advertises PrimaryUsage=3, so we widen
-    // the match above and discriminate here instead.
     NSNumber *reportSize = (__bridge_transfer NSNumber *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDMaxInputReportSizeKey));
+    NSNumber *usage = (__bridge_transfer NSNumber *)
+        IOHIDDeviceGetProperty(device, CFSTR(kIOHIDPrimaryUsageKey));
+    NSNumber *usagePage = (__bridge_transfer NSNumber *)
+        IOHIDDeviceGetProperty(device, CFSTR(kIOHIDPrimaryUsagePageKey));
+
+    NSLog(@"[Tapify] HID device found — product: %@, usagePage: 0x%X, usage: %@, reportSize: %d",
+          product ?: @"(unknown)",
+          usagePage.unsignedIntValue,
+          usage ?: @"(none)",
+          reportSize.intValue);
+
     if (reportSize.intValue != kReportLength) {
-        NSLog(@"[Tapify] Skipping HID device: %@ (report size %d)",
-              product ?: @"(unknown)", reportSize.intValue);
+        NSLog(@"[Tapify] Skipping — report size %d != expected %d",
+              reportSize.intValue, kReportLength);
         return;
     }
 
-    NSLog(@"[Tapify] Matched HID device: %@", product ?: @"(unknown)");
+    NSLog(@"[Tapify] Opening as accelerometer: %@", product ?: @"(unknown)");
 
     // Allocate a per-device context on the heap — must outlive the callback lifetime
     DeviceContext *ctx = (DeviceContext *)calloc(1, sizeof(DeviceContext));
