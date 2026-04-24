@@ -96,6 +96,7 @@ static void DeviceRemovedCallback(void            *context,
 
 - (void)start {
     if (_isRunning) return;
+    NSLog(@"[Tapify] AccelerometerReader starting.");
     _deviceContexts = [NSMutableArray array];
     _hidThread = [[NSThread alloc] initWithTarget:self
                                          selector:@selector(_runHIDLoop)
@@ -124,6 +125,8 @@ static void DeviceRemovedCallback(void            *context,
 
 - (void)_runHIDLoop {
     @autoreleasepool {
+        NSLog(@"[Tapify] HID thread started.");
+
         // Build the device matching dictionary for the SPU accelerometer.
         // On M1–M4 the device advertised PrimaryUsage=3; on M5 it does not,
         // so we match on the vendor usage page alone and filter by report size
@@ -158,6 +161,8 @@ static void DeviceRemovedCallback(void            *context,
         if (openResult != kIOReturnSuccess) {
             NSLog(@"[Tapify] IOHIDManagerOpen failed: 0x%x. "
                   @"Try running with elevated privileges.", openResult);
+        } else {
+            NSLog(@"[Tapify] IOHIDManagerOpen succeeded. Waiting for devices...");
         }
 
         // Block on this thread's run loop forever (until -stop cancels the thread)
