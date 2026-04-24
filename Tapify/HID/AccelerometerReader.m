@@ -51,12 +51,23 @@ static void HIDReportCallback(void         *context,
     sample.z         = (double)rawZ * kRawToG;
     sample.timestamp = mach_absolute_time();
 
-    // Log the first report to confirm data is flowing and offsets look sane.
-    static BOOL didLogFirst = NO;
-    if (!didLogFirst) {
-        didLogFirst = YES;
-        NSLog(@"[Tapify] First report — x:%.3f y:%.3f z:%.3f (raw %d %d %d)",
-              sample.x, sample.y, sample.z, rawX, rawY, rawZ);
+    // Dump the first 30 raw reports to a file so byte layout can be inspected.
+    // The file is readable via: cat /tmp/tapify_reports.hex
+    static int sDumpCount = 0;
+    if (sDumpCount < 30) {
+        sDumpCount++;
+        FILE *f = fopen("/tmp/tapify_reports.hex", sDumpCount == 1 ? "w" : "a");
+        if (f) {
+            fprintf(f, "report %02d (%ld bytes): ", sDumpCount, reportLength);
+            for (CFIndex i = 0; i < reportLength; i++) {
+                fprintf(f, "%02X ", report[i]);
+            }
+            fprintf(f, "  | parsed x=%.4f y=%.4f z=%.4f\n",
+                    (double)rawX * kRawToG,
+                    (double)rawY * kRawToG,
+                    (double)rawZ * kRawToG);
+            fclose(f);
+        }
     }
 
     DeviceContext *ctx = (DeviceContext *)context;
