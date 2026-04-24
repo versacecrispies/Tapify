@@ -56,7 +56,10 @@ static void HIDReportCallback(void         *context,
     static int sDumpCount = 0;
     if (sDumpCount < 30) {
         sDumpCount++;
-        FILE *f = fopen("/tmp/tapify_reports.hex", sDumpCount == 1 ? "w" : "a");
+        const char *home = getenv("HOME");
+        char path[1024];
+        snprintf(path, sizeof(path), "%s/Desktop/tapify_reports.hex", home ? home : "/tmp");
+        FILE *f = fopen(path, sDumpCount == 1 ? "w" : "a");
         if (f) {
             fprintf(f, "report %02d (%ld bytes): ", sDumpCount, reportLength);
             for (CFIndex i = 0; i < reportLength; i++) {
