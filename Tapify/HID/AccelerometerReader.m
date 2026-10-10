@@ -1,4 +1,5 @@
 #import "AccelerometerReader.h"
+#import <IOKit/IOKitLib.h>
 #import <IOKit/hid/IOHIDManager.h>
 #import <IOKit/hid/IOHIDDevice.h>
 #import <mach/mach_time.h>
@@ -10,6 +11,57 @@ static const int    kXOffset            = 6;
 static const int    kYOffset            = 10;
 static const int    kZOffset            = 14;
 static const double kRawToG             = 1.0 / 65536.0;
+
+// Some AppleSPUHIDDriver instances (confirmed on M4 MacBook Air) leave the
+// motion sensor dormant until a report interval is written to the driver.
+// Opening the IOHIDDevice still succeeds in that state, but no input reports
+// are delivered.  Wake every matching driver before starting HID discovery.
+static void WakeSPUDrivers(void)
+{
+    CFMutableDictionaryRef matching = IOServiceMatching("AppleSPUHIDDriver");
+    if (!matching) {
+        NSLog(@"[Tapify] Could not create AppleSPUHIDDriver match dictionary.");
+        return;
+    }
+
+    io_iterator_t iterator = IO_OBJECT_NULL;
+    kern_return_t matchResult = IOServiceGetMatchingServices(kIOMainPortDefault,
+                                                              matching,
+                                                              &iterator);
+    if (matchResult != KERN_SUCCESS) {
+        NSLog(@"[Tapify] AppleSPUHIDDriver lookup failed: 0x%x", matchResult);
+        return;
+    }
+
+    int32_t intervalMicroseconds = 8000; // 125 Hz
+    CFNumberRef interval = CFNumberCreate(kCFAllocatorDefault,
+                                          kCFNumberSInt32Type,
+                                          &intervalMicroseconds);
+    NSUInteger matchedCount = 0;
+    NSUInteger wokenCount = 0;
+
+    io_service_t service;
+    while ((service = IOIteratorNext(iterator)) != IO_OBJECT_NULL) {
+        matchedCount++;
+        kern_return_t wakeResult = IORegistryEntrySetCFProperty(
+            service,
+            CFSTR(kIOHIDReportIntervalKey),
+            interval
+        );
+        if (wakeResult == KERN_SUCCESS) {
+            wokenCount++;
+        } else {
+            NSLog(@"[Tapify] Failed to wake AppleSPUHIDDriver: 0x%x", wakeResult);
+        }
+        IOObjectRelease(service);
+    }
+
+    CFRelease(interval);
+    IOObjectRelease(iterator);
+    NSLog(@"[Tapify] SPU wake complete (%lu/%lu drivers).",
+          (unsigned long)wokenCount,
+          (unsigned long)matchedCount);
+}
 
 // Per-device context passed into IOHIDDevice callbacks
 typedef struct {
@@ -134,6 +186,8 @@ static void DeviceRemovedCallback(void            *context,
     @autoreleasepool {
         NSLog(@"[Tapify] HID thread started.");
 
+        WakeSPUDrivers();
+
         // Build the device matching dictionary for the SPU accelerometer.
         // On M1–M4 the device advertised PrimaryUsage=3; on M5 it does not,
         // so we match on the vendor usage page alone and filter by report size
@@ -188,13 +242,13 @@ static void DeviceRemovedCallback(void            *context,
 }
 
 - (void)_deviceMatched:(IOHIDDeviceRef)device {
-    NSString *product = (__bridge_transfer NSString *)
+    NSString *product = (__bridge NSString *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey));
-    NSNumber *reportSize = (__bridge_transfer NSNumber *)
+    NSNumber *reportSize = (__bridge NSNumber *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDMaxInputReportSizeKey));
-    NSNumber *usage = (__bridge_transfer NSNumber *)
+    NSNumber *usage = (__bridge NSNumber *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDPrimaryUsageKey));
-    NSNumber *usagePage = (__bridge_transfer NSNumber *)
+    NSNumber *usagePage = (__bridge NSNumber *)
         IOHIDDeviceGetProperty(device, CFSTR(kIOHIDPrimaryUsagePageKey));
 
     NSLog(@"[Tapify] HID device found — product: %@, usagePage: 0x%X, usage: %@, reportSize: %d",
